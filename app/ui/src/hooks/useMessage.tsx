@@ -18,6 +18,7 @@ const parsesStreamingResponse = (text: string) => {
   //   console.log(`text: ${text}`);
   const REGEX = /event: (.+)\ndata: (.+)/g;
   const matches = text.matchAll(REGEX);
+  // console.log(text)
   const result = [];
   for (const match of matches) {
     const type = match[1];
@@ -43,7 +44,9 @@ export const useMessage = () => {
     historyId,
     setHistoryId,
     isLoading,
-    setIsLoading
+    setIsLoading,
+    isProcessing,
+    setIsProcessing
   } = useStoreMessage();
 
   const param = useParams<{ id: string; history_id?: string }>();
@@ -141,14 +144,16 @@ export const useMessage = () => {
 
       for (const { type, message } of p) {
         if (type === "chunk") {
+          const jsonMessage = JSON.parse(message);
           if (count === 0) {
-            newMessage[appendingIndex].message = message;
+            newMessage[appendingIndex].message = jsonMessage.message;
             setMessages(newMessage);
           } else {
-            newMessage[appendingIndex].message += message;
+            newMessage[appendingIndex].message += jsonMessage.message;
             setMessages(newMessage);
           }
           count++;
+          setIsProcessing(true);
         } else if (type === "result") {
           const responseData = JSON.parse(message) as BotResponse;
           newMessage[appendingIndex].message = responseData.bot.text;
@@ -156,13 +161,16 @@ export const useMessage = () => {
           setHistoryId(responseData.history_id);
           setHistory(responseData.history);
           setMessages(newMessage);
+          setIsProcessing(false);
+          reader.releaseLock();
+          break;
         }
       }
     }
+    reader.releaseLock();
   };
 
   const onSubmit = async (message: string) => {
-    console.log("is_streaming", streaming);
     if (streaming) {
       await streamingRequest(message);
     } else {
@@ -187,6 +195,7 @@ export const useMessage = () => {
     setHistoryId,
     setIsFirstMessage,
     isLoading,
-    setIsLoading
+    setIsLoading,
+    isProcessing,
   };
 };
